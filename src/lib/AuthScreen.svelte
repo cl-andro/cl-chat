@@ -5,14 +5,21 @@
 
     let email = $state('');
     let password = $state('');
-    let serverUrl = $state('wss://cl-chat.786313.xyz/ws');
+    let serverUrl = $state('');
+    let showPw = $state(false);
 
     $effect(() => {
         try {
             const saved = localStorage.getItem('cl_chat_server_url');
-            if (saved) serverUrl = saved;
-        } catch (e) { /* noop */ }
+            serverUrl = saved || 'wss://cl-chat.786313.xyz/ws';
+        } catch (e) {
+            serverUrl = 'wss://cl-chat.786313.xyz/ws';
+        }
     });
+
+    function togglePw() {
+        showPw = !showPw;
+    }
 
     async function handleAccess() {
         const e = email.trim().toLowerCase();
@@ -24,9 +31,19 @@
             return;
         }
 
+        if (!window.crypto?.subtle) {
+            addToast('HTTPS required for cryptography. Use the GitHub Pages URL.', 'error');
+            return;
+        }
+
+        if (typeof nacl === 'undefined') {
+            addToast('Crypto library not loaded. Try a hard refresh.', 'error');
+            return;
+        }
+
         try {
             localStorage.setItem('cl_chat_server_url', s);
-        } catch (e) { /* noop */ }
+        } catch (_) {}
 
         chat.authLoading = true;
         chat.authError = '';
@@ -37,14 +54,16 @@
             login(e, keys.sign, keys.encrypt);
             connectServer(s);
         } catch (err) {
-            chat.authError = err.message;
-            addToast('Failed: ' + err.message, 'error');
+            const msg = err?.message || String(err) || 'Unknown error';
+            chat.authError = msg;
+            addToast('Failed: ' + msg, 'error');
             chat.authLoading = false;
+            console.error('Auth error:', err);
         }
     }
 </script>
 
-<div class="glass-panel auth-screen">
+<div class="auth-screen">
     <div class="auth-logo">CL-CHAT</div>
     <div class="auth-subtitle">Zero-Knowledge, End-to-End Encrypted.<br>Key pairs derived entirely client-side.</div>
 
@@ -55,7 +74,12 @@
 
     <div class="input-group">
         <label class="input-label" for="passwordInput">Security Password</label>
-        <input type="password" id="passwordInput" class="input-field" placeholder="Strong password (zero-recovery)" autocomplete="new-password" bind:value={password}>
+        <div style="position:relative;display:flex;align-items:center;">
+            <input type={showPw ? 'text' : 'password'} id="passwordInput" class="input-field" placeholder="Strong password (zero-recovery)" autocomplete="new-password" bind:value={password} style="padding-right:44px;">
+            <button onclick={togglePw} type="button" style="position:absolute;right:12px;background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--wa-text-muted);padding:4px;line-height:1;">
+                {showPw ? '🙈' : '👁️'}
+            </button>
+        </div>
     </div>
 
     <div class="input-group">
@@ -68,9 +92,12 @@
             <span>Access Chat Console</span>
         </button>
     {:else}
-        <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
             <div class="spinner"></div>
-            <div style="font-size:0.8rem;color:var(--text-secondary);">Deriving Cryptographic Identity Keys...</div>
+            <div style="font-size:0.85rem;color:var(--wa-text-secondary);text-align:center;line-height:1.4;">
+                Deriving Cryptographic Identity Keys...<br>
+                <span style="font-size:0.75rem;color:var(--wa-text-muted);">PBKDF2 + NaCl key pair generation</span>
+            </div>
         </div>
     {/if}
 </div>
