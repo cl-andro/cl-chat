@@ -12,6 +12,7 @@
     let serverUrl = $state('');
     let showPw = $state(false);
     let loading = $state(false);
+    let loggedIn = $state(false);
 
     $effect(() => {
         try {
@@ -56,6 +57,7 @@
             const keys = generateKeyPair(derivedBytes);
             login(e, keys.sign, keys.encrypt);
             connectServer(s);
+            loggedIn = true;
         } catch (err) {
             const msg = err?.message || String(err) || 'Unknown error';
             addToast('Failed: ' + msg, 'error');
@@ -65,48 +67,50 @@
     }
 </script>
 
-<div class="auth-screen" style="display:{state.isLoggedIn ? 'none' : 'flex'};">
-    <div class="auth-logo">CL-CHAT</div>
-    <div class="auth-subtitle">Zero-Knowledge, End-to-End Encrypted.<br>Key pairs derived entirely client-side.</div>
+{#if !loggedIn}
+    <div class="auth-screen">
+        <div class="auth-logo">CL-CHAT</div>
+        <div class="auth-subtitle">Zero-Knowledge, End-to-End Encrypted.<br>Key pairs derived entirely client-side.</div>
 
-    <div class="input-group">
-        <label class="input-label" for="emailAppInput">Email</label>
-        <input type="email" id="emailAppInput" class="input-field" placeholder="alice@example.com" autocomplete="email" bind:value={email}>
-    </div>
-
-    <div class="input-group">
-        <label class="input-label" for="passwordAppInput">Security Password</label>
-        <div style="position:relative;display:flex;align-items:center;">
-            <input type={showPw ? 'text' : 'password'} id="passwordAppInput" class="input-field" placeholder="Strong password (zero-recovery)" autocomplete="new-password" bind:value={password} style="padding-right:44px;">
-            <button onclick={togglePw} type="button" style="position:absolute;right:12px;background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--wa-text-muted);padding:4px;line-height:1;">
-                {showPw ? '🙈' : '👁️'}
-            </button>
+        <div class="input-group">
+            <label class="input-label" for="emailAppInput">Email</label>
+            <input type="email" id="emailAppInput" class="input-field" placeholder="alice@example.com" autocomplete="email" bind:value={email}>
         </div>
-    </div>
 
-    <div class="input-group">
-        <label class="input-label" for="serverUrlAppInput">Chat Server</label>
-        <input type="text" id="serverUrlAppInput" class="input-field" placeholder="wss://cl-chat.786313.xyz/ws" bind:value={serverUrl}>
-    </div>
-
-    {#if !loading}
-        <button class="btn" onclick={handleAccess}>
-            <span>Access Chat Console</span>
-        </button>
-    {:else}
-        <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
-            <div class="spinner"></div>
-            <div style="font-size:0.85rem;color:var(--wa-text-secondary);text-align:center;line-height:1.4;">
-                Deriving Cryptographic Identity Keys...<br>
-                <span style="font-size:0.75rem;color:var(--wa-text-muted);">PBKDF2 + NaCl key pair generation</span>
+        <div class="input-group">
+            <label class="input-label" for="passwordAppInput">Security Password</label>
+            <div style="position:relative;display:flex;align-items:center;">
+                <input type={showPw ? 'text' : 'password'} id="passwordAppInput" class="input-field" placeholder="Strong password (zero-recovery)" autocomplete="new-password" bind:value={password} style="padding-right:44px;">
+                <button onclick={togglePw} type="button" style="position:absolute;right:12px;background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--wa-text-muted);padding:4px;line-height:1;">
+                    {showPw ? '🙈' : '👁️'}
+                </button>
             </div>
         </div>
-    {/if}
-</div>
 
-<div class="chat-screen" style="display:{state.isLoggedIn ? 'flex' : 'none'};">
-    <ChatScreen />
-</div>
+        <div class="input-group">
+            <label class="input-label" for="serverUrlAppInput">Chat Server</label>
+            <input type="text" id="serverUrlAppInput" class="input-field" placeholder="wss://cl-chat.786313.xyz/ws" bind:value={serverUrl}>
+        </div>
+
+        {#if !loading}
+            <button class="btn" onclick={handleAccess}>
+                <span>Access Chat Console</span>
+            </button>
+        {:else}
+            <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+                <div class="spinner"></div>
+                <div style="font-size:0.85rem;color:var(--wa-text-secondary);text-align:center;line-height:1.4;">
+                    Deriving Cryptographic Identity Keys...<br>
+                    <span style="font-size:0.75rem;color:var(--wa-text-muted);">PBKDF2 + NaCl key pair generation</span>
+                </div>
+            </div>
+        {/if}
+    </div>
+{:else}
+    <div class="chat-screen">
+        <ChatScreen />
+    </div>
+{/if}
 
 <AddContactModal />
 <Toast />
