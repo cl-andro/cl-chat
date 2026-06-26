@@ -47,22 +47,19 @@
 </script>
 
 <div class="message-wrapper {isMe ? 'sent' : 'received'}" data-index={index}>
-    <div class="message-content">
-        {#if !isMe}
-            <div class="message-sender-label">{message.sender}</div>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class={bubbleClass()} onclick={message.isSecret && isMe ? toggleReveal : undefined}>
+        {@html renderedContent()}
+        <div class="message-meta">
+            <span class="message-time">{message.time}</span>
+        </div>
+    </div>
+    <div class="message-actions">
+        <button class="message-action-btn {copied ? 'copied' : ''}" onclick={handleCopy} title="Copy">
+            {copied ? '✓' : '📋'}
+        </button>
+        {#if message.isSecret}
+            <button class="message-action-btn" onclick={toggleReveal} title="Reveal/Hide">👁</button>
         {/if}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div class={bubbleClass()} onclick={message.isSecret && isMe ? toggleReveal : undefined}>
-            {@html renderedContent()}
-        </div>
-        <div class="message-time">{message.time}</div>
-        <div class="message-actions">
-            <button class="message-action-btn {copied ? 'copied' : ''}" onclick={handleCopy} title="Copy">
-                {copied ? '✓' : '📋'}
-            </button>
-            {#if message.isSecret}
-                <button class="message-action-btn" onclick={toggleReveal} title="Reveal/Hide">👁</button>
-            {/if}
-        </div>
     </div>
 </div>

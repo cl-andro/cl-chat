@@ -1,12 +1,11 @@
 <script>
-    import { state as chat, addMessage, clearActiveMessages, toggleSecretMode, addToast, setSearchQuery } from './chat.svelte.js';
+    import { state as chat, addMessage, clearActiveMessages, toggleSecretMode, addToast, setSearchQuery, selectContact } from './chat.svelte.js';
     import { encryptMessage, signPayload } from './crypto.js';
     import { wsSend, lookupContact } from './network.js';
     import { toHex, getTime, isSecretKey, debounce } from './utils.js';
     import MessageBubble from './MessageBubble.svelte';
 
     let chatInput = $state('');
-    let searchInput = $state('');
     let historyEl;
 
     $effect(() => {
@@ -22,14 +21,6 @@
             });
         }
     });
-
-    const debouncedSearch = debounce((val) => {
-        setSearchQuery(val);
-    }, 300);
-
-    function onSearchInput() {
-        debouncedSearch(searchInput);
-    }
 
     function handleSend() {
         const text = chatInput.trim();
@@ -86,52 +77,49 @@
         }
     }
 
+    function goBack() {
+        selectContact(null);
+    }
+
     const activeMsgs = $derived(
         chat.activeContact ? (chat.contacts[chat.activeContact]?.messages ?? []) : []
     );
+
+    const contactInitial = $derived(
+        chat.activeContact ? chat.activeContact.charAt(0).toUpperCase() : ''
+    );
 </script>
 
-{#if chat.activeContact}
-    <div id="activeChatView" style="display:flex;flex-direction:column;height:100%;width:100%;">
-        <div class="chat-header">
-            <div class="chat-header-left">
-                <div class="active-contact-title">{chat.activeContact}</div>
-                <button class="clear-chat-btn" onclick={clearChat} title="Clear chat history">🗑</button>
-            </div>
-            <div class="encryption-badge">
-                <span>🔒 E2EE</span>
-            </div>
-        </div>
+<div class="chat-area-bg"></div>
 
-        <div class="search-bar">
-            <div class="search-input-wrapper">
-                <span class="search-icon">🔍</span>
-                <input type="text" class="search-input" placeholder="Search messages..." bind:value={searchInput} oninput={onSearchInput}>
-            </div>
-        </div>
-
-        <div id="messageHistory" class="message-history" bind:this={historyEl}>
-            {#if activeMsgs.length === 0}
-                <div class="empty-state">No messages yet. Send your first secure message.</div>
-            {:else}
-                {#each activeMsgs as msg, i (i)}
-                      <MessageBubble message={msg} index={i} />
-                {/each}
-            {/if}
-        </div>
-
-        <div class="chat-footer">
-            <input type="text" class="chat-input" placeholder="Type a secure message..." bind:value={chatInput} onkeydown={handleKey}>
-            <div class="chat-footer-actions">
-                <button id="secretToggle" class="action-icon-btn {chat.secretMode ? 'active' : ''}" onclick={toggleSecretMode} title="Toggle secret mode">🤫</button>
-                <button class="send-btn" onclick={handleSend}>➔</button>
-            </div>
+<div class="chat-header">
+    <div class="chat-header-left">
+        <button class="back-btn" onclick={goBack}>←</button>
+        <div class="chat-avatar">{contactInitial}</div>
+        <div class="chat-contact-info">
+            <div class="active-contact-title">{chat.activeContact}</div>
+            <div class="chat-subtitle">🔒 End-to-end encrypted</div>
         </div>
     </div>
-{:else}
-    <div id="noChatSelected" class="no-active-chat">
-        <div class="no-active-chat-icon">💬</div>
-        <div style="font-weight:700;margin-bottom:4px;">Select a Conversation</div>
-        <div style="font-size:0.85rem;">Choose a contact or add one to start secure messaging.</div>
+    <div class="chat-header-actions">
+        <button class="chat-header-btn" onclick={clearChat} title="Clear chat">🗑</button>
     </div>
-{/if}
+</div>
+
+<div id="messageHistory" class="message-history" bind:this={historyEl}>
+    {#if activeMsgs.length === 0}
+        <div class="empty-state">No messages yet. Send your first secure message.</div>
+    {:else}
+        {#each activeMsgs as msg, i (i)}
+              <MessageBubble message={msg} index={i} />
+        {/each}
+    {/if}
+</div>
+
+<div class="chat-footer">
+    <input type="text" class="chat-input" placeholder="Type a message" bind:value={chatInput} onkeydown={handleKey}>
+    <div class="chat-footer-actions">
+        <button class="action-icon-btn {chat.secretMode ? 'active' : ''}" onclick={toggleSecretMode} title="Secret mode">🤫</button>
+        <button class="send-btn" onclick={handleSend}>➔</button>
+    </div>
+</div>

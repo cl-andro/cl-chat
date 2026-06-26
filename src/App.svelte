@@ -6,13 +6,11 @@
     import Toast from './lib/Toast.svelte';
 </script>
 
-<div class="container">
-    {#if !state.isLoggedIn}
-        <AuthScreen />
-    {:else}
-        <ChatScreen />
-    {/if}
-</div>
+{#if !state.isLoggedIn}
+    <AuthScreen />
+{:else}
+    <ChatScreen />
+{/if}
 
 <AddContactModal />
 <Toast />
