@@ -5,7 +5,7 @@
     let newEmail = $state('');
 
     function close() {
-        state.showAddModal = false;
+        chat.showAddModal = false;
         newEmail = '';
     }
 
