@@ -52,6 +52,7 @@
             const derivedBytes = await deriveSeed(p, e);
             const keys = generateKeyPair(derivedBytes);
             login(e, keys.sign, keys.encrypt);
+            chat.authLoading = false;
             connectServer(s);
         } catch (err) {
             const msg = err?.message || String(err) || 'Unknown error';
