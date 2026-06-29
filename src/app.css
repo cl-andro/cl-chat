@@ -570,6 +570,23 @@ body {
     color: var(--wa-text-muted);
 }
 
+.message-status {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    margin-left: 2px;
+}
+
+.message-status.sending {
+    font-size: 0.6rem;
+}
+
+.message-status.delivered {
+    color: var(--wa-green); /* Turns green to confirm delivery! */
+}
+
 .message-wrapper.sent .message-time {
     color: rgba(233, 237, 239, 0.6);
 }

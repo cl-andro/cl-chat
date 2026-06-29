@@ -29,6 +29,8 @@
         try {
             localStorage.removeItem('cl_chat_email');
             localStorage.removeItem('cl_chat_password');
+            localStorage.removeItem('cl_chat_token');
+            localStorage.removeItem('cl_chat_seed');
         } catch (_) {}
         window.location.reload();
     }

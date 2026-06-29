@@ -40,9 +40,11 @@
             );
             const signature = signPayload(ciphertext, chat.signKeyPair.secretKey);
             const isSecret = chat.secretMode || isSecretKey(text);
+            const clientMsgId = chat.myEmail + '-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
 
             wsSend({
                 type: 'message',
+                clientMsgId,
                 recipient: chat.activeContact,
                 ciphertext: toHex(ciphertext),
                 nonce: toHex(nonce),
@@ -51,6 +53,9 @@
             });
 
             addMessage(chat.activeContact, {
+                clientMsgId,
+                id: null,
+                status: 'sending',
                 sender: chat.myEmail,
                 text,
                 time: getTime(),

@@ -52,6 +52,17 @@
         {@html renderedContent()}
         <div class="message-meta">
             <span class="message-time">{message.time}</span>
+            {#if isMe}
+                <span class="message-status {message.status || 'sent'}">
+                    {#if message.status === 'sending'}
+                        🕒
+                    {:else if message.status === 'delivered'}
+                        ✓✓
+                    {:else}
+                        ✓
+                    {/if}
+                </span>
+            {/if}
         </div>
     </div>
     <div class="message-actions">

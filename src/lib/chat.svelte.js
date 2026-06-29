@@ -84,3 +84,29 @@ export function setSearchQuery(query) {
 export function toggleSecretMode() {
     state.secretMode = !state.secretMode;
 }
+
+export function updateMessageStatus(email, clientMsgId, serverId, status) {
+    const contact = state.contacts[email];
+    if (contact) {
+        contact.messages = contact.messages.map(m => {
+            if (m.clientMsgId === clientMsgId) {
+                return { ...m, id: serverId, status };
+            }
+            return m;
+        });
+        state.contacts = { ...state.contacts };
+    }
+}
+
+export function updateMessageStatusByServerId(email, serverId, status) {
+    const contact = state.contacts[email];
+    if (contact) {
+        contact.messages = contact.messages.map(m => {
+            if (m.id === serverId) {
+                return { ...m, status };
+            }
+            return m;
+        });
+        state.contacts = { ...state.contacts };
+    }
+}

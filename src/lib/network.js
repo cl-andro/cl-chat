@@ -1,24 +1,32 @@
 import { toHex, fromHex, getTime, isSecretKey } from './utils.js';
-import { decryptMessage } from './crypto.js';
-import { state, addToast, addContact, setContactKeys, addMessage, setConnectionStatus, selectContact, login } from './chat.svelte.js';
+import { decryptMessage, generateKeyPair, signPayload } from './crypto.js';
+import { state, addToast, addContact, setContactKeys, addMessage, setConnectionStatus, selectContact, login, updateMessageStatus, updateMessageStatusByServerId } from './chat.svelte.js';
 
 let ws = null;
 let reconnectTimer = null;
 
-// Persistent session credentials for auto-reconnection and authentication
+// Persistent session credentials strictly in memory for secure auto-reconnections
 let savedUrl = '';
 let savedEmail = '';
 let savedPassword = '';
+let savedMode = '';
+let savedSeed = null;
+
 let savedSignKeyPair = null;
 let savedEncryptKeyPair = null;
 
-export function connectServer(url, email, password, signKeyPair, encryptKeyPair) {
-    // Save credentials internally for reconnect attempts
+export function connectServer(url, email, password, mode, seed) {
     savedUrl = url;
     savedEmail = email;
     savedPassword = password;
-    savedSignKeyPair = signKeyPair;
-    savedEncryptKeyPair = encryptKeyPair;
+    savedMode = mode;
+    savedSeed = seed;
+
+    if (seed) {
+        const keys = generateKeyPair(seed);
+        savedSignKeyPair = keys.sign;
+        savedEncryptKeyPair = keys.encrypt;
+    }
 
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);
@@ -30,22 +38,31 @@ export function connectServer(url, email, password, signKeyPair, encryptKeyPair)
 
     ws.onopen = () => {
         setConnectionStatus('connected');
-        // Authenticate with server using email and password, sending public keys
-        ws.send(JSON.stringify({
-            type: 'register',
-            email: savedEmail,
-            password: savedPassword,
-            signPubKey: toHex(savedSignKeyPair.publicKey),
-            encPubKey: toHex(savedEncryptKeyPair.publicKey)
-        }));
+        
+        if (savedMode === 'register') {
+            // New user registration (sends password hash + public keys to register)
+            ws.send(JSON.stringify({
+                type: 'register',
+                email: savedEmail,
+                password: savedPassword,
+                signPubKey: toHex(savedSignKeyPair.publicKey),
+                encPubKey: toHex(savedEncryptKeyPair.publicKey)
+            }));
+        } else {
+            // Log In / Reconnection: request a cryptographic challenge from the server
+            ws.send(JSON.stringify({
+                type: 'auth_challenge_req',
+                email: savedEmail
+            }));
+        }
     };
 
     ws.onclose = () => {
         setConnectionStatus('disconnected');
-        // Auto-reconnect after 3 seconds if we still have credentials (meaning not logged out or rejected)
+        // Auto-reconnect in the background using in-memory keys
         if (savedEmail) {
             reconnectTimer = setTimeout(() => {
-                connectServer(savedUrl, savedEmail, savedPassword, savedSignKeyPair, savedEncryptKeyPair);
+                connectServer(savedUrl, savedEmail, savedPassword, savedMode, savedSeed);
             }, 3000);
         }
     };
@@ -92,6 +109,8 @@ export function clearCredentials() {
     savedUrl = '';
     savedEmail = '';
     savedPassword = '';
+    savedMode = '';
+    savedSeed = null;
     savedSignKeyPair = null;
     savedEncryptKeyPair = null;
     if (reconnectTimer) {
@@ -101,10 +120,29 @@ export function clearCredentials() {
 }
 
 function handleIncomingMessage(msg) {
-    if (msg.type === 'registered') {
-        console.log('Registered and authenticated successfully:', msg.email);
+    if (msg.type === 'auth_challenge') {
+        // Cryptographic Challenge-Response Signature Handshake
+        try {
+            const challengeBytes = fromHex(msg.ciphertext);
+            const signatureBytes = signPayload(challengeBytes, savedSignKeyPair.secretKey);
+            
+            console.log('Signing server challenge with private identity key...');
+            wsSend({
+                type: 'auth_response',
+                email: savedEmail,
+                signature: toHex(signatureBytes)
+            });
+        } catch (e) {
+            console.error('Failed to sign auth challenge:', e);
+            state.authLoading = false;
+            state.authError = 'Key signing error';
+            clearCredentials();
+        }
+
+    } else if (msg.type === 'registered') {
+        console.log('Authenticated successfully via Challenge-Response:', msg.email);
         
-        // Successful login
+        // Successful login transition
         if (!state.isLoggedIn) {
             login(savedEmail, savedSignKeyPair, savedEncryptKeyPair);
             addToast('Connected to secure session', 'success');
@@ -113,12 +151,17 @@ function handleIncomingMessage(msg) {
         state.authLoading = false;
         state.authError = '';
 
-        // Save credentials to localStorage for instant second login!
+        // Save email & server URL to localStorage (no keys, seed or password stored on disk for maximum security!)
         try {
             localStorage.setItem('cl_chat_email', savedEmail);
-            localStorage.setItem('cl_chat_password', savedPassword);
             localStorage.setItem('cl_chat_server_url', savedUrl);
         } catch (_) {}
+
+    } else if (msg.type === 'sent_confirm') {
+        updateMessageStatus(msg.recipient, msg.clientMsgId, msg.id, 'sent');
+
+    } else if (msg.type === 'delivery_confirm') {
+        updateMessageStatusByServerId(msg.recipient, msg.id, 'delivered');
 
     } else if (msg.type === 'lookup_response') {
         setContactKeys(msg.email, fromHex(msg.encPubKey), fromHex(msg.signPubKey));
@@ -126,9 +169,9 @@ function handleIncomingMessage(msg) {
         selectContact(msg.email);
 
     } else if (msg.type === 'message') {
-        // Send ACK back to server immediately so it can delete the message from the queue
+        // Send ACK back to server immediately so it can delete the message from the queue and notify the sender
         if (msg.id) {
-            wsSend({ type: 'ack', id: msg.id });
+            wsSend({ type: 'ack', id: msg.id, sender: msg.sender });
         }
 
         const sender = msg.sender;
@@ -151,8 +194,8 @@ function handleIncomingMessage(msg) {
             clearCredentials();
             try {
                 localStorage.removeItem('cl_chat_email');
-                localStorage.removeItem('cl_chat_password');
             } catch (_) {}
+            
             if (ws) {
                 ws.onclose = null;
                 ws.close();
