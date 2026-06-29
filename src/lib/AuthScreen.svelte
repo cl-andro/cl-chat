@@ -1,12 +1,13 @@
 <script>
     import { deriveSeed, generateKeyPair } from './crypto.js';
     import { connectServer } from './network.js';
-    import { state as chat, login, addToast } from './chat.svelte.js';
+    import { state as chat, addToast } from './chat.svelte.js';
 
     let email = $state('');
     let password = $state('');
     let serverUrl = $state('');
     let showPw = $state(false);
+    let autoLoginChecked = $state(false);
 
     $effect(() => {
         try {
@@ -14,6 +15,29 @@
             serverUrl = saved || 'wss://cl-chat.786313.xyz/ws';
         } catch (e) {
             serverUrl = 'wss://cl-chat.786313.xyz/ws';
+        }
+    });
+
+    // Auto-login effect
+    $effect(() => {
+        if (!autoLoginChecked) {
+            autoLoginChecked = true;
+            try {
+                const savedEmail = localStorage.getItem('cl_chat_email');
+                const savedPassword = localStorage.getItem('cl_chat_password');
+                const savedServer = localStorage.getItem('cl_chat_server_url');
+                
+                if (savedEmail && savedPassword) {
+                    email = savedEmail;
+                    password = savedPassword;
+                    if (savedServer) serverUrl = savedServer;
+                    
+                    // Delay slightly to ensure page load is finished and libraries are ready
+                    setTimeout(() => {
+                        handleAccess();
+                    }, 500);
+                }
+            } catch (_) {}
         }
     });
 
@@ -49,11 +73,18 @@
         chat.authError = '';
 
         try {
-            const derivedBytes = await deriveSeed(p, e);
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Key derivation timed out (30s)')), 30000)
+            );
+            console.log('Starting PBKDF2 derivation...');
+            const derivedBytes = await Promise.race([deriveSeed(p, e), timeout]);
+            console.log('PBKDF2 complete, generating keys...');
             const keys = generateKeyPair(derivedBytes);
-            login(e, keys.sign, keys.encrypt);
-            chat.authLoading = false;
-            connectServer(s);
+            console.log('Keys generated, connecting to server...');
+            
+            // Connect and register/login to server.
+            // On successful validation from server, login(...) will be called to transition.
+            connectServer(s, e, p, keys);
         } catch (err) {
             const msg = err?.message || String(err) || 'Unknown error';
             chat.authError = msg;

@@ -24,6 +24,14 @@
     function hasKeys(email) {
         return !!chat.contacts[email]?.publicKeys;
     }
+
+    function handleLogout() {
+        try {
+            localStorage.removeItem('cl_chat_email');
+            localStorage.removeItem('cl_chat_password');
+        } catch (_) {}
+        window.location.reload();
+    }
 </script>
 
 <div class="sidebar-header">
@@ -39,8 +47,9 @@
             </div>
         </div>
     </div>
-    <div class="sidebar-actions">
+    <div class="sidebar-actions" style="display:flex;align-items:center;gap:8px;">
         <button class="sidebar-action-btn" onclick={() => chat.showAddModal = true} title="Add contact">+</button>
+        <button class="sidebar-action-btn" onclick={handleLogout} title="Log Out" style="font-size:1.1rem;">🚪</button>
     </div>
 </div>
 
