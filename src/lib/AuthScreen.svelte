@@ -84,7 +84,7 @@
             
             // Connect and register/login to server.
             // On successful validation from server, login(...) will be called to transition.
-            connectServer(s, e, p, keys);
+            connectServer(s, e, p, keys.sign, keys.encrypt);
         } catch (err) {
             const msg = err?.message || String(err) || 'Unknown error';
             chat.authError = msg;
